@@ -3,7 +3,6 @@ package sketch
 import (
 	"image"
 	"image/color"
-	"math"
 	"math/rand"
 
 	"github.com/fogleman/gg"
@@ -43,8 +42,10 @@ func NewSketch(source image.Image, userParams SketchParams) *Sketch {
 	s.strokeSize = s.initialStrokeSize
 
 	canvas := gg.NewContext(s.DestWidth, s.DestHeight)
-	canvas.SetColor(color.Black)
+	canvas.SetColor(color.Opaque)
 	canvas.DrawRectangle(0, 0, float64(s.DestWidth), float64(s.DestHeight))
+	canvas.DrawImage(source, rand.Int(), rand.Int())
+	canvas.DrawRoundedRectangle(float64(s.DestWidth), float64(s.DestHeight), rand.Float64(), rand.Float64()*1, float64(1))
 	canvas.FillPreserve()
 
 	s.source = source
@@ -59,6 +60,7 @@ func (s *Sketch) Update() {
 	rndX := rand.Float64() * float64(s.sourceWidth)
 	rndY := rand.Float64() * float64(s.sourceHeight)
 	r, g, b := rgb255(s.source.At(int(rndX), int(rndY)))
+
 	// 2. Determine a destination in the output space
 	destX := rndX * float64(s.DestWidth) / float64(s.sourceWidth)
 	destX += float64(randRange(s.StrokeJitter))
@@ -68,12 +70,9 @@ func (s *Sketch) Update() {
 	// 3. Draw a "stroke" using the desired parameters
 	edges := s.MinEdgeCount + rand.Intn(s.MaxEdgeCount-s.MinEdgeCount+1)
 	s.dc.SetRGBA255(r, g, b, int(s.InitialAlpha))
-	s.dc.DrawRegularPolygon(edges, math.Sin(destX), destY, s.strokeSize, rand.Float64())
-	s.dc.CubicTo(math.Sin(destX), math.Atanh(destY), math.Sin(destX), math.Cos(destY), rndX, rndY)
-	s.dc.DrawRoundedRectangle(destX, destY, rand.Float64(), float64(1), float64(200))
-	// s.dc.RotateAbout(gg.Radians(float64(12)), rndX/2, rndY/2)
-	// s.dc.DrawEllipse(math.Cos(destX), math.Sin(destY), rndX*7/16, rndY/8)
-	s.dc.Stroke()
+	s.dc.DrawRegularPolygon(edges, destX, destY, s.strokeSize, rand.Float64())
+	s.dc.CubicTo(destX, destY, destX, rndY, rndX, rndY)
+	s.dc.RotateAbout(gg.Radians(float64(12)), rndX/2, rndY/2)
 	s.dc.FillPreserve()
 
 	if s.strokeSize <= s.StrokeInversionThreshold*s.initialStrokeSize {
@@ -83,15 +82,16 @@ func (s *Sketch) Update() {
 			s.dc.SetRGBA255(0, 0, 0, int(s.InitialAlpha*2))
 		}
 	}
-	
-	// s.dc.Stroke()
+
+	s.dc.Stroke()
+
 	// 4. Update the parameter state for the next executive
 	s.strokeSize -= s.StrokeReduction * s.strokeSize
 	s.InitialAlpha += s.AlphaIncrease
 }
 
-// hides the interanl implementation of this sketch
 func (s *Sketch) OutPut() image.Image {
+	// hides the interanl implementation of this sketch
 	return s.dc.Image()
 }
 
