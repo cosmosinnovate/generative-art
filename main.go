@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"generative-art/sketch"
 	"image"
 	"image/png"
 	"log"
@@ -11,14 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/fogleman/gg"
 	"github.com/google/uuid"
+
+	"generative-art/sketch"
 )
 
-// var randomName = rand.Intn(99)
-
 var (
-	// sourceImgName   = "unique.jpeg"
+	sourceImgName   = "unique.jpg"
 	outputImgName   = "./out-nft/" + uuid.New().String() + "-out.png"
 	totalCycleCount = 5000
 )
@@ -26,9 +24,11 @@ var (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	img, err := randomImage(2000, 2000)
+	// img, err := loadImage(sourceImgName)
 	if err != nil {
 		log.Panicln(err)
 	}
+
 	destWidth := 2000
 	sketch := sketch.NewSketch(img, sketch.SketchParams{
 		DestWidth:                destWidth,
@@ -42,44 +42,25 @@ func main() {
 		MinEdgeCount:             1,
 		MaxEdgeCount:             4,
 	})
-	// the main loop
 	for i := 0; i < totalCycleCount; i++ {
 		sketch.Update()
 	}
 	saveOutput(sketch.OutPut(), outputImgName)
-	// testDrawing()
-}
-
-// Test the differen functions given by gg library
-func testDrawing() {
-	const S = 2000
-	dc := gg.NewContext(S, S)
-	dc.SetRGBA(0, 0, 0, 0.1)
-
-	for i := 0; i < 360; i += 15 {
-		dc.Push()
-		// dc.RotateAbout(gg.Radians(float64(i)), S/2, S/2)
-		dc.DrawEllipse(S/2, S/2, S*7/16, S/8)
-		dc.Fill()
-		dc.Pop()
-	}
-	fmt.Print(outputImgName)
-	dc.SavePNG(outputImgName)
 }
 
 // Loads image from file system
-// func loadImage(filePath string) (image.Image, error) {
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("source image could not be loaded: %w", err)
-// 	}
-// 	defer file.Close()
-// 	img, _, err := image.Decode(file)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("source image could not be loaded: %w", err)
-// 	}
-// 	return img, nil
-// }
+func loadImage(filePath string) (image.Image, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("source image could not be loaded: %w", err)
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, fmt.Errorf("source image could not be loaded: %w", err)
+	}
+	return img, nil
+}
 
 // Load image from unsplash website. The images are retrieved randomly
 func randomImage(width, height int) (image.Image, error) {

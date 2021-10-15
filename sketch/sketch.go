@@ -3,6 +3,7 @@ package sketch
 import (
 	"image"
 	"image/color"
+	"math"
 	"math/rand"
 
 	"github.com/fogleman/gg"
@@ -43,11 +44,24 @@ func NewSketch(source image.Image, userParams SketchParams) *Sketch {
 
 	canvas := gg.NewContext(s.DestWidth, s.DestHeight)
 	canvas.SetColor(color.Opaque)
-	canvas.DrawRectangle(0, 0, float64(s.DestWidth), float64(s.DestHeight))
-	canvas.DrawImage(source, rand.Int(), rand.Int())
-	canvas.DrawRoundedRectangle(float64(s.DestWidth), float64(s.DestHeight), rand.Float64(), rand.Float64()*1, float64(1))
+	for i := 0; i < 360; i += 15 {
+		canvas.Push()
+		canvas.DrawRectangle(0, 0, float64(s.DestWidth), float64(s.DestHeight))
+		canvas.DrawImage(source, rand.Int(), rand.Int())
+		canvas.DrawRoundedRectangle(float64(s.DestWidth), float64(s.DestHeight), rand.Float64(), rand.Float64()*1, float64(1))
+		canvas.Pop()
+	}
+	for j := 0; j < 100; j++ {
+		for i := 0; i < 10; i++ {
+			x := float64(i)*100 + 10
+			y := float64(j)*100 + 50
+			a1 := rand.Float64() * 2 * math.Pi
+			a2 := a1 + rand.Float64()*math.Pi + math.Pi/2
+			canvas.DrawArc(x, y, 40, a1, a2)
+			canvas.ClosePath()
+		}
+	}
 	canvas.FillPreserve()
-
 	s.source = source
 	s.dc = canvas
 	return s
@@ -66,25 +80,29 @@ func (s *Sketch) Update() {
 	destX += float64(randRange(s.StrokeJitter))
 	destY := rndY * float64(s.DestHeight) / float64(s.sourceHeight)
 	destY += float64(randRange(s.StrokeJitter))
+	for i := 0; i < 360; i += 15 {
+		// 3. Draw a "stroke" using the desired parameters
+		edges := s.MinEdgeCount + rand.Intn(s.MaxEdgeCount-s.MinEdgeCount+1)
+		s.dc.SetRGBA255(r, g, b, int(s.InitialAlpha))
+		s.dc.DrawRegularPolygon(edges, destX, destY, s.strokeSize, rand.Float64())
+		s.dc.CubicTo(destX, destY, destX, rndY, rndX, rndY)
+		s.dc.RotateAbout(gg.Radians(float64(12)), rndX/2, rndY/2)
+		s.dc.Push()
+		s.dc.RotateAbout(gg.Radians(float64(i)), float64(edges)/2, float64(edges)/2)
+		s.dc.DrawEllipse(float64(edges)/2, float64(edges)/2, float64(edges)*7/16, float64(edges)/8)
+		s.dc.Fill()
 
-	// 3. Draw a "stroke" using the desired parameters
-	edges := s.MinEdgeCount + rand.Intn(s.MaxEdgeCount-s.MinEdgeCount+1)
-	s.dc.SetRGBA255(r, g, b, int(s.InitialAlpha))
-	s.dc.DrawRegularPolygon(edges, destX, destY, s.strokeSize, rand.Float64())
-	s.dc.CubicTo(destX, destY, destX, rndY, rndX, rndY)
-	s.dc.RotateAbout(gg.Radians(float64(12)), rndX/2, rndY/2)
-	s.dc.FillPreserve()
+		s.dc.FillPreserve()
 
-	if s.strokeSize <= s.StrokeInversionThreshold*s.initialStrokeSize {
-		if (r+g+b)/3 < 128 {
-			s.dc.SetRGBA255(255, 255, 255, int(s.InitialAlpha*2))
-		} else {
-			s.dc.SetRGBA255(0, 0, 0, int(s.InitialAlpha*2))
+		if s.strokeSize <= s.StrokeInversionThreshold*s.initialStrokeSize {
+			if (r+g+b)/3 < 128 {
+				s.dc.SetRGBA255(255, 255, 255, int(s.InitialAlpha*2))
+			} else {
+				s.dc.SetRGBA255(0, 0, 0, int(s.InitialAlpha*2))
+			}
 		}
 	}
-
 	s.dc.Stroke()
-
 	// 4. Update the parameter state for the next executive
 	s.strokeSize -= s.StrokeReduction * s.strokeSize
 	s.InitialAlpha += s.AlphaIncrease
